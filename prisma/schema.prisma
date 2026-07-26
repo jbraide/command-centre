@@ -1,0 +1,197 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  savedTranscriptions SavedTranscription[]
+  projects            Project[]
+  passwordEntries     PasswordEntry[]
+  scripts             Script[]
+  keyPrinciples       KeyPrinciple[]
+  scriptStyles        ScriptStyle[]
+  apiKeys             ApiKey[]
+  serviceIntegrations ServiceIntegration[]
+}
+
+model SavedTranscription {
+  id        String   @id @default(cuid())
+  userId    String
+  url       String
+  title     String
+  text      String
+  segments  String?
+  language  String
+  duration  Float?
+  createdAt DateTime @default(now())
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  links ProjectLink[]
+
+  @@index([userId])
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  color       String   @default("#7fd858")
+  status      String   @default("ACTIVE") // ACTIVE | ARCHIVED | COMPLETED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks Task[]
+  notes Note[]
+  links ProjectLink[]
+  scripts Script[]
+
+  @@index([userId])
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  projectId   String
+  title       String
+  description String?
+  dueDate     DateTime?
+  priority    String   @default("MEDIUM") // LOW | MEDIUM | HIGH
+  completed   Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  projectId String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model PasswordEntry {
+  id                String   @id @default(cuid())
+  userId            String
+  website           String
+  username          String
+  encryptedPassword String   // AES-256-GCM ciphertext (base64)
+  iv                String   // Initialization vector (base64)
+  encryptedNotes    String?  // Also encrypted (base64)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model ProjectLink {
+  id                   String   @id @default(cuid())
+  projectId            String
+  url                  String
+  title                String?
+  description          String?
+  savedTranscriptionId String?
+  createdAt            DateTime @default(now())
+
+  project             Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  savedTranscription  SavedTranscription?  @relation(fields: [savedTranscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+}
+
+model Script {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  content   String
+  styleId   String?
+  projectId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  style   ScriptStyle?  @relation(fields: [styleId], references: [id], onDelete: SetNull)
+  project Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+model KeyPrinciple {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model ScriptStyle {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  guidelines  String?
+  createdAt   DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scripts Script[]
+
+  @@index([userId])
+}
+
+model ApiKey {
+  id                String   @id @default(cuid())
+  userId            String
+  name              String
+  description       String?
+  encryptedKey      String   // Client-side encrypted (master password)
+  iv                String   // Client-side IV
+  serverEncryptedKey String? // Server-side encrypted (for automated API calls)
+  serverIv          String?  // Server-side IV
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model ServiceIntegration {
+  id        String   @id @default(cuid())
+  userId    String
+  service   String
+  label     String
+  config    String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, service])
+}
