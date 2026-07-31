@@ -27,22 +27,29 @@
 ### ✅ Vercel-Compatible
 | Feature | Notes |
 |---------|-------|
-| API routes | Serverless functions (10s default timeout) |
+| API routes | Serverless functions (10s default timeout — transcription uses Deepgram's 5-min external call) |
 | Auth.js (JWT) | Works with `AUTH_SECRET` env var |
 | Prisma + PostgreSQL | Works with Neon / Vercel Postgres adapter |
 | AI generation (DeepSeek) | Pure HTTP calls |
+| **Transcription** | **Deepgram API — accepts URLs directly, no shell needed** |
 | Dashboard, Scripts, Personas, Projects, Habits, Focus Timer | All client-side + API |
 
-### ❌ NOT Vercel-Compatible (Blocks)
+### ❌ NOT Vercel-Compatible
 | Feature | Why |
 |---------|-----|
-| **Video/Reel Transcriber** | Runs `exec()` → yt-dlp + ffmpeg + ONNX Whisper model. Serverless functions: no shell access, 10s timeout, 50MB size limit (Whisper ONNX is 42MB) |
-| **AI Agent tool calling** | Currently broken anyway (see AI-SCRIPT-TESTING.md) |
+| ~~Video/Reel Transcriber~~ | ✅ **Solved** — switched to Deepgram API (`src/lib/transcription-api.ts`). Deepgram downloads + transcribes server-side. Local yt-dlp + Whisper remains as fallback when `DEEPGRAM_API_KEY` is unset (VPS/dev only) |
+| AI Agent tool calling | Currently broken anyway (see AI-SCRIPT-TESTING.md) |
 
-### Options for the Transcriber
-1. **Keep a small Node.js service on a VPS** — the transcriber runs there, Vercel proxies to it
-2. **Use a transcription API** — Deepgram, AssemblyAI, or OpenAI Whisper API (replaces yt-dlp + local Whisper)
-3. **Vercel Background Functions (Pro)** — 15min timeout, but still no shell commands → option 1 or 2 still needed
+### Deepgram Setup
+```
+1. Create free account at https://console.deepgram.com (includes free credits)
+2. Copy API key
+3. Set env var:
+   DEEPGRAM_API_KEY=your_key
+   DEEPGRAM_MODEL=nova-2   (optional; nova-3 is faster/more accurate)
+```
+- Works with YouTube, Instagram, TikTok, Facebook, X, Vimeo, and direct audio URLs
+- Falls back to local yt-dlp + Whisper automatically if the key is missing (dev machines)
 
 ### Recommended Architecture
 ```

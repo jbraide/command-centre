@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { downloadAudio, transcribeAudio, cleanup } from '@/lib/transcriber';
+import { transcribeUrl } from '@/lib/transcription-api';
 import { auth } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
@@ -24,11 +25,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Step 1: download audio via yt-dlp + ffmpeg
+    // ── Preferred: API-based transcription (Vercel-compatible) ──────────
+    // Deepgram handles download + transcription server-side. Works with
+    // YouTube, Instagram, TikTok, Facebook, and more — no shell required.
+    const apiResult = await transcribeUrl(url);
+    if (apiResult) {
+      return NextResponse.json(apiResult);
+    }
+
+    // ── Fallback: local yt-dlp + Whisper (VPS/desktop only) ─────────────
     const download = await downloadAudio(url, cookies_file || undefined);
     workdir = download.workdir;
 
-    // Step 2: transcribe via Xenova/Transformers (pure JS Whisper)
     const transcript = await transcribeAudio(download.audioPath, model_size || 'tiny');
 
     return NextResponse.json({
@@ -40,10 +48,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('Transcription error:', error);
-
-    // Return generic error, log details server-side only
-    const status = 500;
-    return NextResponse.json({ error: 'Transcription failed' }, { status });
+    return NextResponse.json({ error: 'Transcription failed' }, { status: 500 });
   } finally {
     if (workdir) {
       cleanup(workdir);
