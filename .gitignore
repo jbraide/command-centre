@@ -1,0 +1,14 @@
+node_modules/
+.next/
+*.db
+*.db-journal
+.env
+.DS_Store
+*.log
+instagram-transcriber/ffmpeg
+instagram-transcriber/ffprobe
+instagram-transcriber/venv/
+*.txt
+import.json
+.env.backup
+.env.sqlite-backup
