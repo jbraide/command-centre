@@ -12,3 +12,4 @@ instagram-transcriber/venv/
 import.json
 .env.backup
 .env.sqlite-backup
+tsconfig.tsbuildinfo
