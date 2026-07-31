@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { downloadAudio, transcribeAudio, cleanup } from '@/lib/transcriber';
-import { transcribeUrl } from '@/lib/transcription-api';
+import { transcribeYoutube, transcribeDeepgramUrl } from '@/lib/transcription-api';
 import { auth } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
@@ -25,15 +25,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Preferred: API-based transcription (Vercel-compatible) ──────────
-    // Deepgram handles download + transcription server-side. Works with
-    // YouTube, Instagram, TikTok, Facebook, and more — no shell required.
-    const apiResult = await transcribeUrl(url);
-    if (apiResult) {
-      return NextResponse.json(apiResult);
+    // ── 1. YouTube → caption track (Vercel-ready, pure HTTP) ────────────
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      const ytResult = await transcribeYoutube(url);
+      if (ytResult) {
+        return NextResponse.json(ytResult);
+      }
+      // No captions → fall through to Deepgram / local
     }
 
-    // ── Fallback: local yt-dlp + Whisper (VPS/desktop only) ─────────────
+    // ── 2. Deepgram URL mode (works for platforms that serve direct media) ──
+    try {
+      const dgResult = await transcribeDeepgramUrl(url, session.user.id);
+      if (dgResult) {
+        return NextResponse.json(dgResult);
+      }
+    } catch {
+      // Deepgram URL mode failed (YouTube/Instagram often serve HTML) — fall through
+    }
+
+    // ── 3. Local yt-dlp + Whisper (dev/VPS only) ─────────────────────────
     const download = await downloadAudio(url, cookies_file || undefined);
     workdir = download.workdir;
 

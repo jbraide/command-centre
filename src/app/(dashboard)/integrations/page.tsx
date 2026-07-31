@@ -100,6 +100,19 @@ const AVAILABLE_SERVICES: AvailableService[] = [
     ],
     color: 'text-purple-400',
   },
+  {
+    id: 'deepgram',
+    name: 'Deepgram',
+    description: 'Video & audio transcription — accepts YouTube, Instagram, TikTok URLs directly.',
+    icon: Brain,
+    fields: [
+      { key: 'model', label: 'Model', type: 'select', required: false, options: [
+        { value: 'nova-2', label: 'Nova-2 (balanced)' },
+        { value: 'nova-3', label: 'Nova-3 (faster, more accurate)' },
+      ]},
+    ],
+    color: 'text-emerald-400',
+  },
 ];
 
 /* ------------------------------------------------------------------ */

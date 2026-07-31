@@ -112,6 +112,19 @@ const AVAILABLE_SERVICES: AvailableService[] = [
     ],
     color: 'text-purple-400',
   },
+  {
+    id: 'deepgram',
+    name: 'Deepgram',
+    description: 'Video & audio transcription — accepts YouTube, Instagram, TikTok URLs directly.',
+    icon: Brain,
+    fields: [
+      { key: 'model', label: 'Model', type: 'select', required: false, options: [
+        { value: 'nova-2', label: 'Nova-2 (balanced)' },
+        { value: 'nova-3', label: 'Nova-3 (faster, more accurate)' },
+      ]},
+    ],
+    color: 'text-emerald-400',
+  },
 ];
 
 const SERVICE_ICON_MAP: Record<string, LucideIcon> = {
@@ -119,6 +132,7 @@ const SERVICE_ICON_MAP: Record<string, LucideIcon> = {
   cloudflare: Cloud,
   'zapier-mcp': Zap,
   deepseek: Brain,
+  deepgram: Brain,
 };
 
 /* ------------------------------------------------------------------ */
@@ -172,6 +186,10 @@ export default function ServiceConfigPage() {
   /* Test connection state (DeepSeek) */
   const [deepseekTesting, setDeepseekTesting] = useState(false);
   const [deepseekTestResult, setDeepseekTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  /* Test connection state (Deepgram) */
+  const [deepgramTesting, setDeepgramTesting] = useState(false);
+  const [deepgramTestResult, setDeepgramTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   /* Masked key display */
   const [revealedKeyId, setRevealedKeyId] = useState<string | null>(null);
@@ -470,6 +488,57 @@ export default function ServiceConfigPage() {
       });
     } finally {
       setDeepseekTesting(false);
+    }
+  };
+
+  /* Test Deepgram connection */
+  const handleDeepgramTest = async () => {
+    setDeepgramTesting(true);
+    setDeepgramTestResult(null);
+
+    // Fetch the decrypted API key from the store
+    let apiKey = '';
+    try {
+      const keyRes = await fetch(`/api/api-keys/${selectedApiKeyId}`);
+      if (keyRes.ok) {
+        const keyData = await keyRes.json();
+        apiKey = keyData.key ?? '';
+      }
+    } catch {}
+
+    if (!apiKey) {
+      setDeepgramTestResult({ ok: false, message: 'Could not retrieve API key from store.' });
+      setDeepgramTesting(false);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/integrations/deepgram/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey,
+          model: fieldValues.model ?? 'nova-2',
+        }),
+      });
+
+      const body = await res.json().catch(() => null);
+
+      if (body?.success) {
+        setDeepgramTestResult({ ok: true, message: body.message });
+      } else {
+        setDeepgramTestResult({
+          ok: false,
+          message: body?.error ?? 'Failed to connect to Deepgram API',
+        });
+      }
+    } catch {
+      setDeepgramTestResult({
+        ok: false,
+        message: 'Network error — could not test connection',
+      });
+    } finally {
+      setDeepgramTesting(false);
     }
   };
 
@@ -940,6 +1009,60 @@ export default function ServiceConfigPage() {
               <button
                 type="button"
                 onClick={() => setDeepseekTestResult(null)}
+                className="hover:opacity-70 shrink-0 ml-auto"
+              >
+                <XCircle size={14} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Test Connection section — Deepgram only, saved & enabled */}
+      {serviceId === 'deepgram' && integration && enabled && (
+        <div className="border border-[var(--border)] bg-[var(--panel)] rounded-sm p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <Brain size={18} className="text-emerald-400" />
+            <h3 className="text-sm font-semibold text-[var(--foreground)]">
+              Test Connection
+            </h3>
+          </div>
+
+          <p className="text-xs text-[var(--muted)]">
+            Verify your Deepgram API key works for video &amp; audio transcription.
+          </p>
+
+          <button
+            type="button"
+            onClick={handleDeepgramTest}
+            disabled={deepgramTesting}
+            className="flex items-center justify-center gap-2 px-5 py-2 rounded-sm bg-[var(--accent)] text-[var(--accent-fg)] text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {deepgramTesting ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Brain size={16} />
+            )}
+            {deepgramTesting ? 'Testing…' : 'Test Connection'}
+          </button>
+
+          {deepgramTestResult && (
+            <div
+              className={`flex items-start gap-2 p-3 rounded-sm text-sm ${
+                deepgramTestResult.ok
+                  ? 'border border-green-500/30 bg-green-500/10 text-green-400'
+                  : 'border border-red-500/30 bg-red-500/10 text-red-400'
+              }`}
+            >
+              {deepgramTestResult.ok ? (
+                <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+              ) : (
+                <XCircle size={16} className="mt-0.5 shrink-0" />
+              )}
+              <span>{deepgramTestResult.message}</span>
+              <button
+                type="button"
+                onClick={() => setDeepgramTestResult(null)}
                 className="hover:opacity-70 shrink-0 ml-auto"
               >
                 <XCircle size={14} />
