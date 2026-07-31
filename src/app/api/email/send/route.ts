@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { prisma } from '@/lib/db';
-import { sendEmail } from '@/lib/email';
+import { sendEmail, getBrevoConfig } from '@/lib/email';
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -26,23 +25,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Try to get Brevo config from database (user-configured in Settings)
-    const brevoConfig = await prisma.serviceIntegration.findUnique({
-      where: { userId_service: { userId: session.user.id, service: 'brevo' } },
-    });
+    // Get Brevo config from the integration (API Key Store backed)
+    const brevoConfig = await getBrevoConfig(session.user.id);
 
     let emailOptions: { apiKey?: string; sender?: { email: string; name?: string } } | undefined;
 
-    if (brevoConfig?.enabled) {
-      try {
-        const config = JSON.parse(brevoConfig.config);
-        emailOptions = {
-          apiKey: config.apiKey,
-          sender: sender || (config.senderEmail ? { email: config.senderEmail, name: config.senderName } : undefined),
-        };
-      } catch {
-        // malformed config — fall through to env var
-      }
+    if (brevoConfig) {
+      emailOptions = {
+        apiKey: brevoConfig.apiKey,
+        sender: sender || brevoConfig.sender,
+      };
     }
 
     const result = await sendEmail(

@@ -37,6 +37,7 @@ import {
   CalendarCheck,
   ListFilter,
   ExternalLink,
+  Mail,
 } from 'lucide-react';
 
 const navGroups = [
@@ -52,6 +53,7 @@ const navGroups = [
       { href: '/projects', label: 'Projects', icon: FolderKanban },
       { href: '/invoices', label: 'Invoices', icon: FileText },
       { href: '/todos', label: 'Tasks', icon: CheckSquare },
+      { href: '/email', label: 'Email', icon: Mail },
     ],
   },
   {
