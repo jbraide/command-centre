@@ -169,3 +169,78 @@ ${constraints}`);
 
   return parts.join('\n\n');
 }
+
+/**
+ * Structured Script Writer prompt builder — same persona context, examples,
+ * style, and constraints as the table prompt, but instructs the model to
+ * output a structured (non-table) markdown document with three sections:
+ * Script, Creative Direction, and Production Notes.
+ */
+export function buildStructuredScriptPrompt({
+  topic,
+  personaLessons,
+  personaExamples,
+  scriptStyle,
+  constraints,
+}: {
+  topic: string;
+  personaLessons?: string;
+  personaExamples?: string;
+  scriptStyle?: string;
+  constraints?: string;
+}): string {
+  const parts: string[] = [];
+
+  parts.push('You are a professional script writer helping create a short-form video script.');
+
+  if (personaLessons) {
+    parts.push(`
+## Voice Lessons (follow these as hard rules)
+${personaLessons}`);
+  }
+
+  if (personaExamples) {
+    parts.push(`
+## Style References (study the rhythm and structure, do NOT copy phrases)
+${personaExamples}`);
+    parts.push(`
+IMPORTANT: Use the examples above for style inspiration only. Do not copy any specific phrases, jokes, or claims from them. The topic below is new content — every detail must be about the current topic.`);
+  }
+
+  if (scriptStyle) {
+    parts.push(`
+## Script Structure / Template
+${scriptStyle}`);
+  }
+
+  if (constraints) {
+    parts.push(`
+## Constraints
+${constraints}`);
+  }
+
+  parts.push(`
+## Output rules
+- One clear hook in the first line
+- Write conversationally, as if speaking directly to camera
+- Respect any voice lessons as hard constraints
+- If no persona is specified, write in a clear, engaging, natural voice
+- Output ONLY the markdown structure below, with EXACTLY these ## section headers:
+
+## Script
+<the actual spoken script, broken into scene beats. No tables. Use short lines like a screenplay.>
+
+## Creative Direction
+<visual direction per scene: camera angle, shot type, on-screen action, props, B-roll, location. Bullet points.>
+
+## Production Notes
+<timing (e.g. total 30s), pacing, audio/music/SFX cues, on-screen text/Captions, CTA/end card, hashtags if relevant>
+
+Format rules:
+- The Script section must be the raw voiceover text a creator would read — no tables, no cells.
+- Creative Direction explains what's on screen for each beat.
+- Production Notes covers timing, audio, captions, CTA.
+- Output only the three sections above, no commentary outside them.`);
+
+  return parts.join('\n\n');
+}

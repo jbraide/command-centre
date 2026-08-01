@@ -20,13 +20,28 @@
 |-------|--------|---------|
 | **Direct generation** | ✅ Working | `POST /api/ai/generate` combines persona + style → DeepSeek → saves script |
 | **Markdown tables** | ✅ Working | Scripts output in `Time | Visual | Voiceover | On-Screen Text | Audio Cues` format |
-| **Preview rendering** | ✅ Working | Edit/Preview toggle renders tables properly |
+| **Structured format** | ✅ Working | `format: "structured"` outputs Script + Creative Direction + Production Notes sections, no tables |
+| **Structured fields** | ✅ Working | `scriptText`, `creativeDirection`, `productionNotes` stored as separate DB columns |
+| **Format selector** | ✅ Working | Output Format toggle (Table / Structured) in generation panel |
+| **Preview rendering** | ✅ Working | Edit/Preview toggle renders tables AND structured sections |
 | **Batch generation** | ✅ Working | 19 scripts generated across Single Layer, Double Layer, Seat Covers, Bundles |
 
 ### Data Imported (via API)
 - **Kallaway Marketing persona**: 4 lessons, 5 examples, 1 script
 - **LuxeRide Nigeria style**: brand overview, product matrix, audience psychology, USPs, tone/voice, script structure, objection handling, AI rules
 - **8 business memories** with LuxeRide context
+
+### Structured Script Example (verified via curl)
+
+A successful `POST /api/ai/generate` with `format: "structured"` returns the three fields separately:
+
+```json
+{
+  "scriptText": "[00:00-00:05] OPEN on a Lexus LX parked in a Lagos driveway.\n[00:05-00:15] VISUAL: Owner hands over the keys, shows the Double Layer TPE mats.\n[00:15-00:30] VOICEOVER: Keep that luxury interior spotless...",
+  "creativeDirection": "Cinematic close-ups of the mats' stitching, warm golden-hour lighting, aspirational but grounded in local driving reality.",
+  "productionNotes": "30-second cut. Use a Nigerian voiceover artist. Record wildtrack of car door closing for the transition at 00:15."
+}
+```
 
 ---
 

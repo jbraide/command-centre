@@ -18,6 +18,8 @@ import {
   Type,
   Eye,
   EyeOff,
+  LayoutGrid,
+  StickyNote,
 } from 'lucide-react';
 
 /* ── Types ────────────────────────────────────── */
@@ -61,6 +63,10 @@ interface Script {
   project?: { id: string; name: string } | null;
   persona?: { id: string; name: string; colorTag: string } | null;
   idea?: { id: string; title: string } | null;
+  format?: string;
+  scriptText?: string | null;
+  creativeDirection?: string | null;
+  productionNotes?: string | null;
 }
 
 /* ── Helpers ──────────────────────────────────── */
@@ -139,6 +145,7 @@ function ScriptsPageInner() {
   const [genPersonaId, setGenPersonaId] = useState('');
   const [genConstraints, setGenConstraints] = useState('');
   const [genThinking, setGenThinking] = useState(false);
+  const [genFormat, setGenFormat] = useState<'table' | 'structured'>('table');
   const [showPreview, setShowPreview] = useState(false);
 
   /* Refs */
@@ -407,6 +414,7 @@ function ScriptsPageInner() {
           scriptStyle: editorStyleId || null,
           constraints: genConstraints.trim() || null,
           thinking: genThinking,
+          format: genFormat,
           title: editorTitle.trim() || null,
         }),
       });
@@ -512,9 +520,16 @@ function ScriptsPageInner() {
                     )}
 
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[var(--foreground)] truncate">
-                        {script.title || 'Untitled'}
-                      </p>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-sm font-medium text-[var(--foreground)] truncate">
+                          {script.title || 'Untitled'}
+                        </p>
+                        {script.format === 'structured' && (
+                          <span className="shrink-0 text-[10px] font-medium text-[var(--accent)] border border-[var(--accent)]/30 px-1.5 py-0.5 leading-none">
+                            Structured
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-[10px] text-[var(--muted)]">
                           {formatDateShort(script.createdAt)}
@@ -632,6 +647,8 @@ function ScriptsPageInner() {
             setGenConstraints={setGenConstraints}
             genThinking={genThinking}
             setGenThinking={setGenThinking}
+            genFormat={genFormat}
+            setGenFormat={setGenFormat}
             generating={generating}
             onGenerate={handleGenerate}
             onCancel={() => {
@@ -658,12 +675,19 @@ function ScriptsPageInner() {
                     ← Back to editor
                   </button>
                 )}
-                <span className="text-xs text-[var(--muted)]">
-                  {saveStatus === 'saving' && 'Saving…'}
-                  {saveStatus === 'saved' && 'Saved'}
-                  {saveStatus === 'unsaved' && 'Unsaved changes'}
-                  {saveStatus === 'idle' && ''}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-[var(--muted)]">
+                    {saveStatus === 'saving' && 'Saving…'}
+                    {saveStatus === 'saved' && 'Saved'}
+                    {saveStatus === 'unsaved' && 'Unsaved changes'}
+                    {saveStatus === 'idle' && ''}
+                  </span>
+                  {selectedScript?.format === 'structured' && (
+                    <span className="text-[10px] font-medium text-[var(--accent)] border border-[var(--accent)]/30 px-1.5 py-0.5 leading-none">
+                      Structured
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -708,6 +732,8 @@ function ScriptsPageInner() {
                   setGenConstraints={setGenConstraints}
                   genThinking={genThinking}
                   setGenThinking={setGenThinking}
+                  genFormat={genFormat}
+                  setGenFormat={setGenFormat}
                   generating={generating}
                   onGenerate={handleGenerate}
                   onCancel={() => setShowGenerate(false)}
@@ -793,7 +819,7 @@ function ScriptsPageInner() {
                   <label className="block text-xs font-medium text-[var(--muted)]">
                     Script Content
                   </label>
-                  {editorContent && (
+                  {(editorContent || selectedScript?.format === 'structured') && (
                     <button
                       onClick={() => setShowPreview(!showPreview)}
                       className="flex items-center gap-1 text-xs text-[var(--muted)] hover:text-[var(--accent)] transition-colors"
@@ -807,9 +833,18 @@ function ScriptsPageInner() {
                   )}
                 </div>
                 {showPreview ? (
-                  <div className="w-full bg-[var(--panel)] border border-[var(--border)] px-4 py-3 text-sm min-h-[400px] overflow-y-auto">
-                    <MarkdownRenderer content={editorContent} />
-                  </div>
+                  selectedScript?.format === 'structured' ? (
+                    <StructuredScriptView
+                      scriptText={selectedScript?.scriptText}
+                      creativeDirection={selectedScript?.creativeDirection}
+                      productionNotes={selectedScript?.productionNotes}
+                      fallbackContent={editorContent}
+                    />
+                  ) : (
+                    <div className="w-full bg-[var(--panel)] border border-[var(--border)] px-4 py-3 text-sm min-h-[400px] overflow-y-auto">
+                      <MarkdownRenderer content={editorContent} />
+                    </div>
+                  )
                 ) : (
                   <textarea
                     ref={contentRef}
@@ -844,6 +879,8 @@ function GenerationPanel({
   setGenConstraints,
   genThinking,
   setGenThinking,
+  genFormat,
+  setGenFormat,
   generating,
   onGenerate,
   onCancel,
@@ -866,6 +903,8 @@ function GenerationPanel({
   setGenConstraints: (v: string) => void;
   genThinking: boolean;
   setGenThinking: (v: boolean) => void;
+  genFormat: 'table' | 'structured';
+  setGenFormat: (v: 'table' | 'structured') => void;
   generating: boolean;
   onGenerate: () => void;
   onCancel: () => void;
@@ -1017,6 +1056,42 @@ function GenerationPanel({
         </div>
       </div>
 
+      {/* ── Output Format ───────────────────────── */}
+      <div>
+        <label className="block text-xs font-medium text-[var(--muted)] mb-2">
+          Output Format
+        </label>
+        <div className="flex gap-1">
+          <button
+            onClick={() => setGenFormat('table')}
+            className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 border transition-all ${
+              genFormat === 'table'
+                ? 'bg-[var(--accent)] text-[var(--background)] border-[var(--accent)]'
+                : 'text-[var(--muted)] border-[var(--border)] hover:text-[var(--foreground)] hover:bg-[var(--panel)]'
+            }`}
+          >
+            <LayoutGrid size={13} />
+            Table
+          </button>
+          <button
+            onClick={() => setGenFormat('structured')}
+            className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 border transition-all ${
+              genFormat === 'structured'
+                ? 'bg-[var(--accent)] text-[var(--background)] border-[var(--accent)]'
+                : 'text-[var(--muted)] border-[var(--border)] hover:text-[var(--foreground)] hover:bg-[var(--panel)]'
+            }`}
+          >
+            <StickyNote size={13} />
+            Structured
+          </button>
+        </div>
+        <p className="mt-1.5 text-[10px] text-[var(--muted)]">
+          {genFormat === 'table'
+            ? 'Table — time, visual & voiceover in columns'
+            : 'Structured — script, creative direction & production notes'}
+        </p>
+      </div>
+
       {/* ── Persona Selector ──────────────────────── */}
       <div>
         <label className="block text-xs font-medium text-[var(--muted)] mb-1">
@@ -1117,6 +1192,62 @@ function GenerationPanel({
           Cancel
         </button>
       </div>
+    </div>
+  );
+}
+
+/* ── Structured Script Preview ────────────────── */
+
+function StructuredScriptView({
+  scriptText,
+  creativeDirection,
+  productionNotes,
+  fallbackContent,
+}: {
+  scriptText?: string | null;
+  creativeDirection?: string | null;
+  productionNotes?: string | null;
+  fallbackContent: string;
+}) {
+  const script = scriptText?.trim() || fallbackContent?.trim();
+  const direction = creativeDirection?.trim();
+  const notes = productionNotes?.trim();
+
+  // No structured fields at all → fall back to the raw markdown content
+  if (!script && !direction && !notes) {
+    return (
+      <div className="w-full bg-[var(--panel)] border border-[var(--border)] px-4 py-3 text-sm min-h-[400px] overflow-y-auto">
+        <MarkdownRenderer content={fallbackContent} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full bg-[var(--panel)] border border-[var(--border)] px-4 py-3 text-sm min-h-[400px] overflow-y-auto space-y-5">
+      {script && (
+        <section>
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)] border-b border-[var(--border)] pb-1.5 mb-2">
+            Script
+          </h3>
+          <MarkdownRenderer content={script} />
+        </section>
+      )}
+      {direction && (
+        <section>
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)] border-b border-[var(--border)] pb-1.5 mb-2">
+            Creative Direction
+          </h3>
+          <MarkdownRenderer content={direction} />
+        </section>
+      )}
+      {notes && (
+        <section>
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)] border-b border-[var(--border)] pb-1.5 mb-2">
+            Production Notes
+          </h3>
+          <MarkdownRenderer content={notes} />
+        </section>
+      )}
     </div>
   );
 }

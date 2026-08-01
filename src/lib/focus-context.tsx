@@ -43,12 +43,14 @@ const defaultFocus: FocusState = {
 const STORAGE_KEY = 'focus-timer-state';
 
 function saveToStorage(state: FocusState) {
+  if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, lastTick: Date.now() }));
   } catch (error) { console.error('[Focus]', error); }
 }
 
 function loadFromStorage(): FocusState | null {
+  if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -65,6 +67,7 @@ function loadFromStorage(): FocusState | null {
 }
 
 function clearStorage() {
+  if (typeof window === 'undefined') return;
   try { localStorage.removeItem(STORAGE_KEY); } catch (error) { console.error('[Focus]', error); }
 }
 

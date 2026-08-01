@@ -160,16 +160,20 @@ model ProjectLink {
 }
 
 model Script {
-  id        String   @id @default(cuid())
-  userId    String
-  title     String
-  content   String
-  styleId   String?
-  projectId String?
-  personaId String?
-  ideaId    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String   @id @default(cuid())
+  userId            String
+  title             String
+  content           String
+  format            String   @default("table") // "table" | "structured"
+  scriptText        String?  // structured: the spoken script
+  creativeDirection String?  // structured: visual / shot direction
+  productionNotes   String?  // structured: timing, audio, CTA, extras
+  styleId           String?
+  projectId         String?
+  personaId         String?
+  ideaId            String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   style   ScriptStyle?    @relation(fields: [styleId], references: [id], onDelete: SetNull)

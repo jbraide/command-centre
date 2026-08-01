@@ -1,7 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { generateCompletion, buildScriptPrompt } from '@/lib/ai';
+import { generateCompletion, buildScriptPrompt, buildStructuredScriptPrompt } from '@/lib/ai';
+
+/**
+ * Extract the text under a `## <header>` markdown section, up to (but not
+ * including) the next `## <nextHeader>` section. Returns null if the section
+ * is not found.
+ */
+function extractSection(content: string, header: string, nextHeader?: string): string | null {
+  const pattern = nextHeader
+    ? new RegExp(`## ${header}\\s*\n([\\s\\S]*?)\n\\s*## ${nextHeader}`)
+    : new RegExp(`## ${header}\\s*\n([\\s\\S]*)$`);
+  const match = content.match(pattern);
+  return match ? match[1].trim() : null;
+}
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -20,6 +33,7 @@ export async function POST(req: NextRequest) {
       constraints,
       thinking,
       title,
+      format = 'table',
     } = await req.json();
 
     // ── Determine the topic ─────────────────────────────
@@ -102,13 +116,22 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Build prompt and generate ────────────────────────
-    const systemPrompt = buildScriptPrompt({
-      topic: resolvedTopic,
-      personaLessons,
-      personaExamples,
-      scriptStyle: styleGuidelines,
-      constraints,
-    });
+    const systemPrompt =
+      format === 'structured'
+        ? buildStructuredScriptPrompt({
+            topic: resolvedTopic,
+            personaLessons,
+            personaExamples,
+            scriptStyle: styleGuidelines,
+            constraints,
+          })
+        : buildScriptPrompt({
+            topic: resolvedTopic,
+            personaLessons,
+            personaExamples,
+            scriptStyle: styleGuidelines,
+            constraints,
+          });
 
     const content = await generateCompletion({
       userId,
@@ -126,11 +149,28 @@ export async function POST(req: NextRequest) {
         ? `Script: ${resolvedIdea.title}`
         : `Generated Script ${new Date().toLocaleDateString()}`;
 
+    const isStructured = format === 'structured';
+
+    // Parse structured sections so they can be stored separately
+    const scriptText = isStructured
+      ? extractSection(content, 'Script', 'Creative Direction')
+      : null;
+    const creativeDirection = isStructured
+      ? extractSection(content, 'Creative Direction', 'Production Notes')
+      : null;
+    const productionNotes = isStructured
+      ? extractSection(content, 'Production Notes')
+      : null;
+
     const script = await prisma.script.create({
       data: {
         userId: session.user.id,
         title: scriptTitle,
         content,
+        format: isStructured ? 'structured' : 'table',
+        scriptText,
+        creativeDirection,
+        productionNotes,
         styleId: scriptStyle || null,
         personaId: personaId || null,
         ideaId: ideaId || null,
