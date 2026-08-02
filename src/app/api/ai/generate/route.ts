@@ -137,8 +137,8 @@ export async function POST(req: NextRequest) {
       userId,
       systemPrompt,
       userPrompt: `Topic: ${resolvedTopic}\n\nWrite the script.`,
-      temperature: 0.7,
-      maxTokens: 2048,
+      temperature: 0.6,
+      maxTokens: 8192,
       thinking: thinking ?? false,
     });
 

@@ -20,6 +20,7 @@ import {
   EyeOff,
   LayoutGrid,
   StickyNote,
+  Wand2,
 } from 'lucide-react';
 
 /* ── Types ────────────────────────────────────── */
@@ -147,6 +148,11 @@ function ScriptsPageInner() {
   const [genThinking, setGenThinking] = useState(false);
   const [genFormat, setGenFormat] = useState<'table' | 'structured'>('table');
   const [showPreview, setShowPreview] = useState(false);
+
+  /* ── Refine panel state ───────────────────────── */
+  const [refineOpen, setRefineOpen] = useState(false);
+  const [refining, setRefining] = useState(false);
+  const [refineInstructions, setRefineInstructions] = useState('');
 
   /* Refs */
   const contentRef = useRef<HTMLTextAreaElement>(null);
@@ -449,6 +455,48 @@ function ScriptsPageInner() {
     }
   };
 
+  /* ── AI Refine ──────────────────────────────── */
+
+  const handleRefine = async () => {
+    if (!selectedId) return;
+    if (!editorContent.trim()) {
+      toast.error('Nothing to refine — the script is empty');
+      return;
+    }
+
+    setRefining(true);
+    try {
+      const res = await fetch('/api/ai/refine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scriptId: selectedId,
+          instructions: refineInstructions.trim() || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Refinement failed');
+      }
+
+      const data = await res.json();
+
+      setEditorContent(data.content);
+      setScripts((prev) =>
+        prev.map((s) => (s.id === selectedId ? { ...s, ...data.script } : s)),
+      );
+      setSaveStatus('saved');
+      setRefineOpen(false);
+      setRefineInstructions('');
+      toast.success('Script refined with AI');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to refine script');
+    } finally {
+      setRefining(false);
+    }
+  };
+
   /* ── Loading ────────────────────────────────── */
 
   if (loading) {
@@ -702,6 +750,18 @@ function ScriptsPageInner() {
                   Generate
                 </button>
                 <button
+                  onClick={() => setRefineOpen(!refineOpen)}
+                  disabled={!selectedId || refining}
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                    refineOpen
+                      ? 'text-[var(--warning)] border border-[var(--warning)] bg-[var(--warning)]/10'
+                      : 'text-[var(--muted)] border border-[var(--border)] hover:border-[var(--warning)] hover:text-[var(--foreground)]'
+                  }"
+                >
+                  <Wand2 size={14} />
+                  Refine
+                </button>
+                <button
                   onClick={handleSave}
                   disabled={saveStatus === 'saving' || saveStatus === 'saved'}
                   className="flex items-center gap-1.5 text-xs font-semibold text-[var(--accent)] border border-[var(--border)] px-3 py-1.5 hover:border-[var(--accent)] hover:text-[var(--foreground)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -715,6 +775,48 @@ function ScriptsPageInner() {
                 </button>
               </div>
             </div>
+
+            {/* Refine panel (collapsible inside editor) */}
+            {refineOpen && selectedId && (
+              <div className="border-b border-[var(--border)] bg-[var(--panel)] p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-1.5 text-xs font-medium text-[var(--warning)]">
+                    <Wand2 size={14} />
+                    Refine with AI
+                  </label>
+                  <span className="text-[10px] text-[var(--muted)]">
+                    Uses your persona + style + business context
+                  </span>
+                </div>
+                <textarea
+                  value={refineInstructions}
+                  onChange={(e) => setRefineInstructions(e.target.value)}
+                  placeholder={'Optional: what should the AI focus on? (e.g. \'make the hook stronger\', \'remove any claims that don\'t match brand facts\', \'tighten the CTA\')'}
+                  className="w-full bg-[var(--panel)] border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)]/50 focus:outline-none focus:border-[var(--warning)] transition-colors resize-none"
+                  style={{ minHeight: '80px' }}
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleRefine}
+                    disabled={refining || !editorContent.trim()}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-[var(--warning)]/10 text-[var(--warning)] border border-[var(--warning)] hover:bg-[var(--warning)]/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {refining ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Wand2 size={14} />
+                    )}
+                    {refining ? 'Refining…' : 'Refine Script'}
+                  </button>
+                  <button
+                    onClick={() => setRefineOpen(false)}
+                    className="text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Generation panel (collapsible inside editor) */}
             {showGenerate && (
