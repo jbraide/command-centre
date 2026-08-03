@@ -197,6 +197,7 @@ export default function ProjectDetailPage() {
   // Subtask state
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [addingSubtask, setAddingSubtask] = useState<string | null>(null);
+  const [savingSubtask, setSavingSubtask] = useState(false);
 
   // Note form state
   const [newNoteContent, setNewNoteContent] = useState('');
@@ -409,6 +410,8 @@ export default function ProjectDetailPage() {
 
   const handleAddSubtask = async (parentId: string, title: string) => {
     if (!title.trim()) return;
+    if (savingSubtask) return;
+    setSavingSubtask(true);
     try {
       const res = await fetch(`/api/projects/${projectId}/tasks`, {
         method: 'POST',
@@ -433,6 +436,8 @@ export default function ProjectDetailPage() {
       setAddingSubtask(null);
     } catch {
       toast.error('Failed to add subtask');
+    } finally {
+      setSavingSubtask(false);
     }
   };
 
@@ -1336,7 +1341,8 @@ export default function ProjectDetailPage() {
                             <button
                               type="button"
                               onClick={() => { setAddingSubtask(null); setNewSubtaskTitle(''); }}
-                              className="flex-shrink-0 p-1.5 rounded-lg text-[var(--muted)] hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 transition-all"
+                              disabled={savingSubtask}
+                              className="flex-shrink-0 p-1.5 rounded-lg text-[var(--muted)] hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Cancel"
                             >
                               <X size={16} />
@@ -1347,14 +1353,19 @@ export default function ProjectDetailPage() {
                               onChange={(e) => setNewSubtaskTitle(e.target.value)}
                               placeholder="New subtask..."
                               autoFocus
-                              className="flex-1 px-3 py-2 text-sm rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-all"
+                              disabled={savingSubtask}
+                              className="flex-1 px-3 py-2 text-sm rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             />
                             <button
                               type="submit"
-                              disabled={!newSubtaskTitle.trim()}
-                              className="px-3 py-2 text-sm font-medium rounded-lg bg-[var(--accent)] text-[var(--background)] hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={savingSubtask || !newSubtaskTitle.trim()}
+                              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-[var(--accent)] text-[var(--background)] hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              Add
+                              {savingSubtask ? (
+                                <Loader2 size={14} className="animate-spin" />
+                              ) : (
+                                'Add'
+                              )}
                             </button>
                           </form>
                         ) : (

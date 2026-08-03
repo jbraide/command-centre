@@ -254,7 +254,7 @@ function playAlarm() {
 
 export default function FocusPage() {
   /* Timer state — global context (persists across pages) */
-  const { focus, startFocus, pauseFocus, resumeFocus, stopFocus, skipBreak, setOnStopHandler } = useFocus();
+  const { focus, startFocus, pauseFocus, resumeFocus, stopFocus, skipBreak, setOnStopHandler, setAutoStartBreakPref } = useFocus();
 
   /* Local settings */
   const [focusDuration, setFocusDuration] = useState(25); // minutes
@@ -307,6 +307,11 @@ export default function FocusPage() {
     });
     return () => setOnStopHandler(null);
   }, [setOnStopHandler]);
+
+  /* ── Wire auto-start-break preference into context ── */
+  useEffect(() => {
+    setAutoStartBreakPref(autoStartBreak);
+  }, [autoStartBreak, setAutoStartBreakPref]);
 
   /* ── Handlers using global context ────────────── */
 
@@ -436,7 +441,7 @@ export default function FocusPage() {
 
         {/* Controls */}
         <div className="flex items-center gap-3 mt-6">
-          {!isRunning && timeLeft > 0 && timeLeft < totalTime ? (
+          {!isRunning && (focus.isBreak || focus.isPaused || (timeLeft > 0 && timeLeft < totalTime)) ? (
             <button
               onClick={handleResume}
               className="flex items-center gap-2 border border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)] px-5 py-2 text-sm font-semibold hover:bg-[var(--accent)]/20 transition-colors"
