@@ -1,4 +1,7 @@
 import { toolRegistry } from './tool-registry';
+// Side-effect import: registers all internal tools with the global registry.
+// Must be loaded so the AI agent actually has tools available at runtime.
+import './internal-tools';
 
 /**
  * Result of executing a tool call.

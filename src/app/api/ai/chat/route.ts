@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { DEEPSEEK_BASE_URL, getDeepSeekConfig } from '@/lib/ai';
 import { toolRegistry, type ToolDefinition } from '@/lib/ai/tool-registry';
 import { executeToolCall } from '@/lib/ai/tool-router';
+import { registerUserMcpTools } from '@/lib/ai/zapier-mcp';
 import { getMessages, saveMessage } from '@/lib/ai/db';
 import {
   executePlan,
@@ -48,6 +49,7 @@ function buildAgentSystemPrompt(tools: ToolDefinition[]): string {
     '4. **Be concise.** Summarise results naturally. Never output raw JSON.',
     '5. **Password Vault.** You cannot read decrypted passwords. Direct users to the Password Vault module.',
     '6. **Saved Knowledge.** Use the "## Saved Knowledge" section below when generating scripts or answering questions.',
+    '7. **External tools** (marked *(external service)*) perform REAL actions in connected apps (Calendar, Gmail, Google Docs, Slack, etc.). Only call an external tool when the user explicitly asks for that action. For read-only questions, prefer internal tools.',
   ].join('\n');
 }
 
@@ -195,8 +197,16 @@ export async function POST(req: NextRequest) {
 
   const model = config.model;
 
-  // Build conversation
-  const availableTools = toolRegistry.getAll();
+  // Build conversation — include internal tools plus any configured Zapier MCP tools
+  let availableTools = toolRegistry.getAll();
+  try {
+    const mcpCount = await registerUserMcpTools(userId);
+    if (mcpCount > 0) {
+      availableTools = toolRegistry.getAll();
+    }
+  } catch (error) {
+    console.error('[Chat] Failed to register MCP tools:', error);
+  }
   let systemPrompt = buildAgentSystemPrompt(availableTools);
 
   // Inject memories
@@ -241,6 +251,15 @@ export async function POST(req: NextRequest) {
           // Call DeepSeek with tools via direct fetch
           const apiUrl = 'https://api.deepseek.com/v1/chat/completions';
 
+          const toolsPayload = availableTools.map((t) => ({
+            type: 'function',
+            function: {
+              name: t.name,
+              description: t.description,
+              parameters: t.inputSchema,
+            },
+          }));
+
           const res = await fetch(apiUrl, {
             method: 'POST',
             headers: {
@@ -250,14 +269,7 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
               model,
               messages: conversationMessages,
-              tools: availableTools.map((t) => ({
-                type: 'function',
-                function: {
-                  name: t.name,
-                  description: t.description,
-                  parameters: t.inputSchema,
-                },
-              })),
+              tools: toolsPayload,
               tool_choice: 'auto',
               temperature: 0.3,
               max_tokens: 8192,
