@@ -1,18 +1,9 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { testZapierConnection } from '@/lib/ai/zapier-mcp';
 
-const MOCK_TOOLS = [
-  'add_calendar_event',
-  'get_calendar_events',
-  'send_gmail',
-  'create_google_doc',
-  'find_google_doc',
-  'send_slack_message',
-  'create_trello_card',
-  'add_dropbox_file',
-];
-
-// POST /api/integrations/zapier-mcp/test — test connection to Zapier MCP endpoint
+// POST /api/integrations/zapier-mcp/test — connect to a Zapier MCP endpoint
+// and return the tools it exposes.
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -52,19 +43,23 @@ export async function POST(request: Request) {
       );
     }
 
-    // TODO: Replace with actual Zapier MCP SDK connection test
-    // For now, simulate a successful connection by returning mock tool names
-    // when the endpoint URL looks valid and an API key is provided.
-    //
-    // Future implementation should use the @zapier/mcp-client SDK:
-    //   import { MCPClient } from '@zapier/mcp-client';
-    //   const client = new MCPClient({ apiKey, endpointUrl });
-    //   const tools = await client.listTools();
+    const result = await testZapierConnection({
+      endpointUrl: endpointUrl.trim(),
+      apiKey: apiKey.trim(),
+    });
+
+    if (!result.success) {
+      return NextResponse.json({
+        success: false,
+        error: `Failed to connect: ${result.error ?? 'unknown error'}`,
+      });
+    }
 
     return NextResponse.json({
       success: true,
-      tools: MOCK_TOOLS,
-      message: `Connected to Zapier MCP at ${endpointUrl}`,
+      count: result.count ?? 0,
+      tools: result.tools ?? [],
+      message: `Connected to Zapier MCP — ${result.count ?? 0} tools available`,
     });
   } catch (error) {
     console.error('Zapier MCP test error:', error);
