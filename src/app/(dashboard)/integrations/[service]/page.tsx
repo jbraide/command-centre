@@ -43,6 +43,7 @@ interface AvailableService {
   icon: LucideIcon;
   fields: ServiceConfigField[];
   color: string;
+  hint?: string;
 }
 
 interface ServiceIntegration {
@@ -79,14 +80,18 @@ const AVAILABLE_SERVICES: AvailableService[] = [
   },
   {
     id: 'cloudflare',
-    name: 'Cloudflare',
-    description: 'DNS management, caching, and performance optimization.',
+    name: 'Cloudflare R2',
+    description: 'Object storage (R2) — upload, store, and share files, images, and videos from your bucket.',
     icon: Cloud,
     fields: [
-      { key: 'zoneId', label: 'Zone ID', type: 'text', required: true },
-      { key: 'email', label: 'Account Email', type: 'email', required: true },
+      { key: 'accountId', label: 'Account ID', type: 'text', required: true, placeholder: 'Cloudflare dashboard → R2 overview' },
+      { key: 'accessKeyId', label: 'R2 Access Key ID', type: 'text', required: true, placeholder: 'R2 API Tokens → Access Key ID' },
+      { key: 'bucketName', label: 'Bucket Name', type: 'text', required: true, placeholder: 'e.g. my-media-bucket' },
+      { key: 'endpointUrl', label: 'Endpoint URL (optional)', type: 'text', required: false, placeholder: 'https://<account-id>.r2.cloudflarestorage.com' },
+      { key: 'publicBaseUrl', label: 'Public Base URL (optional)', type: 'text', required: false, placeholder: 'https://pub-xxxx.r2.dev or your custom domain' },
     ],
     color: 'text-orange-400',
+    hint: 'Create an API key in the API Key Store that contains your R2 Secret Access Key (Dashboard → R2 → Manage R2 API Tokens → Create API Token). The Account ID and Access Key ID are identifiers, not secrets — they are stored in the config below.',
   },
   {
     id: 'zapier-mcp',
@@ -190,6 +195,10 @@ export default function ServiceConfigPage() {
   /* Test connection state (Deepgram) */
   const [deepgramTesting, setDeepgramTesting] = useState(false);
   const [deepgramTestResult, setDeepgramTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  /* Test connection state (Cloudflare R2) */
+  const [cloudflareTesting, setCloudflareTesting] = useState(false);
+  const [cloudflareTestResult, setCloudflareTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   /* Masked key display */
   const [revealedKeyId, setRevealedKeyId] = useState<string | null>(null);
@@ -542,8 +551,62 @@ export default function ServiceConfigPage() {
     }
   };
 
-  /* ------------------------------------------------------------------ */
-  /*  Render                                                            */
+  /* Test Cloudflare R2 connection */
+  const handleCloudflareTest = async () => {
+    setCloudflareTesting(true);
+    setCloudflareTestResult(null);
+
+    // Fetch the decrypted R2 Secret Access Key from the API Key Store
+    let secretAccessKey = '';
+    try {
+      const keyRes = await fetch(`/api/api-keys/${selectedApiKeyId}`);
+      if (keyRes.ok) {
+        const keyData = await keyRes.json();
+        secretAccessKey = keyData.key ?? '';
+      }
+    } catch {}
+
+    if (!secretAccessKey) {
+      setCloudflareTestResult({
+        ok: false,
+        message: 'Could not retrieve the R2 Secret Access Key from the key store.',
+      });
+      setCloudflareTesting(false);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/integrations/cloudflare/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountId: fieldValues.accountId ?? '',
+          accessKeyId: fieldValues.accessKeyId ?? '',
+          secretAccessKey,
+          endpointUrl: fieldValues.endpointUrl ?? '',
+        }),
+      });
+
+      const body = await res.json().catch(() => null);
+
+      if (body?.success) {
+        setCloudflareTestResult({ ok: true, message: body.message });
+      } else {
+        setCloudflareTestResult({
+          ok: false,
+          message: body?.error ?? 'Failed to connect to Cloudflare R2',
+        });
+      }
+    } catch {
+      setCloudflareTestResult({
+        ok: false,
+        message: 'Network error — could not test connection',
+      });
+    } finally {
+      setCloudflareTesting(false);
+    }
+  };
+
   /* ------------------------------------------------------------------ */
 
   // Unknown service
@@ -704,6 +767,15 @@ export default function ServiceConfigPage() {
               </div>
             )}
           </div>
+
+          {/* Credential hint (service-specific) */}
+          {serviceDef.hint && (
+            <div className="p-3 rounded-sm border border-[var(--border)] bg-[var(--panel)]">
+              <p className="text-xs text-[var(--muted)] leading-relaxed">
+                {serviceDef.hint}
+              </p>
+            </div>
+          )}
 
           {/* Service-specific fields */}
           {serviceDef.fields.map((field) => (
@@ -1063,6 +1135,61 @@ export default function ServiceConfigPage() {
               <button
                 type="button"
                 onClick={() => setDeepgramTestResult(null)}
+                className="hover:opacity-70 shrink-0 ml-auto"
+              >
+                <XCircle size={14} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Test Connection section — Cloudflare R2 only, saved & enabled */}
+      {serviceId === 'cloudflare' && integration && enabled && (
+        <div className="border border-[var(--border)] bg-[var(--panel)] rounded-sm p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <Cloud size={18} className="text-orange-400" />
+            <h3 className="text-sm font-semibold text-[var(--foreground)]">
+              Test Connection
+            </h3>
+          </div>
+
+          <p className="text-xs text-[var(--muted)]">
+            Verify your R2 credentials by listing the buckets on your Cloudflare
+            account.
+          </p>
+
+          <button
+            type="button"
+            onClick={handleCloudflareTest}
+            disabled={cloudflareTesting}
+            className="flex items-center justify-center gap-2 px-5 py-2 rounded-sm bg-[var(--accent)] text-[var(--accent-fg)] text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {cloudflareTesting ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Cloud size={16} />
+            )}
+            {cloudflareTesting ? 'Testing…' : 'Test Connection'}
+          </button>
+
+          {cloudflareTestResult && (
+            <div
+              className={`flex items-start gap-2 p-3 rounded-sm text-sm ${
+                cloudflareTestResult.ok
+                  ? 'border border-green-500/30 bg-green-500/10 text-green-400'
+                  : 'border border-red-500/30 bg-red-500/10 text-red-400'
+              }`}
+            >
+              {cloudflareTestResult.ok ? (
+                <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+              ) : (
+                <XCircle size={16} className="mt-0.5 shrink-0" />
+              )}
+              <span>{cloudflareTestResult.message}</span>
+              <button
+                type="button"
+                onClick={() => setCloudflareTestResult(null)}
                 className="hover:opacity-70 shrink-0 ml-auto"
               >
                 <XCircle size={14} />
