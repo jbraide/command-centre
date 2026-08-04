@@ -141,7 +141,7 @@
 | Service | Status | What it does |
 |---------|--------|-------------|
 | **Brevo Email** | ✅ Built | Send transactional emails (invoices, notifications, etc.) |
-| **Cloudflare** | ✅ Built | DNS, caching, performance (configured, usage TBD) |
+| **Cloudflare R2** | ✅ Built | Object storage — upload/store/share files, images & videos (`/storage`); test connection on config page |
 
 ### Architecture
 - Integrations reference API keys from the **API Key Store** (dropdown selector)
