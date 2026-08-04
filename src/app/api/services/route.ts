@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 
-const SENSITIVE_FIELDS = /key|secret|password|token/i;
+// Mask only genuinely sensitive config values (secret access keys, passwords, tokens).
+// `accessKeyId` / `apiKeyId` are identifiers and must round-trip unmasked for
+// reconfiguration.
+const SENSITIVE_FIELDS = /(secret|password|token|key)$/i;
 
 function maskSensitiveConfig(configJson: string): Record<string, unknown> {
   try {
