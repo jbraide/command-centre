@@ -22,6 +22,7 @@ import {
   BookOpen,
   Palette,
   Plug,
+  HardDriveUpload,
   Lightbulb,
   Bot,
   BrainCircuit,
@@ -84,6 +85,7 @@ const navGroups = [
     label: 'Services',
     items: [
       { href: '/integrations', label: 'Integrations', icon: Plug },
+      { href: '/storage', label: 'File Storage', icon: HardDriveUpload },
     ],
   },
   {
