@@ -56,7 +56,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { title, content, styleId, projectId, personaId, ideaId } = await req.json();
+    const { title, content, styleId, projectId, personaId, ideaId, scheduledFor } = await req.json();
 
     const updated = await prisma.script.update({
       where: { id },
@@ -67,6 +67,9 @@ export async function PUT(
         ...(projectId !== undefined ? { projectId: projectId ?? null } : {}),
         ...(personaId !== undefined ? { personaId: personaId ?? null } : {}),
         ...(ideaId !== undefined ? { ideaId: ideaId ?? null } : {}),
+        ...(scheduledFor !== undefined
+          ? { scheduledFor: scheduledFor ? new Date(scheduledFor) : null }
+          : {}),
       },
       include: scriptIncludes,
     });

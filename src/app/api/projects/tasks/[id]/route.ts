@@ -27,8 +27,41 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { title, description, dueDate, priority, completed, sortOrder, repeatInterval, repeatEndDate, repeatCount } =
+    const { title, description, dueDate, priority, completed, sortOrder, repeatInterval, repeatEndDate, repeatCount, projectId, goalId } =
       await req.json();
+
+    // Moving a task to another project
+    if (projectId !== undefined && projectId !== task.projectId) {
+      if (task.parentId) {
+        return NextResponse.json(
+          { error: 'Move the parent task instead — subtasks follow their parent' },
+          { status: 400 }
+        );
+      }
+      if (!projectId || typeof projectId !== 'string') {
+        return NextResponse.json(
+          { error: 'Invalid target project' },
+          { status: 400 }
+        );
+      }
+      const targetProject = await prisma.project.findUnique({
+        where: { id: projectId },
+      });
+      if (!targetProject || targetProject.userId !== session.user.id) {
+        return NextResponse.json(
+          { error: 'Target project not found' },
+          { status: 404 }
+        );
+      }
+    }
+
+    // Goal assignment (nullable)
+    if (goalId !== undefined && goalId !== null) {
+      const goal = await prisma.goal.findUnique({ where: { id: goalId } });
+      if (!goal || goal.userId !== session.user.id) {
+        return NextResponse.json({ error: 'Goal not found' }, { status: 404 });
+      }
+    }
 
     const updated = await prisma.task.update({
       where: { id },
@@ -46,8 +79,20 @@ export async function PATCH(
           ? { repeatEndDate: repeatEndDate ? new Date(repeatEndDate) : null }
           : {}),
         ...(repeatCount !== undefined ? { repeatCount } : {}),
+        ...(projectId !== undefined && projectId !== task.projectId
+          ? { projectId }
+          : {}),
+        ...(goalId !== undefined ? { goalId: goalId || null } : {}),
       },
     });
+
+    // If the task was moved, carry its subtasks along
+    if (projectId !== undefined && projectId !== task.projectId) {
+      await prisma.task.updateMany({
+        where: { parentId: task.id },
+        data: { projectId },
+      });
+    }
 
     // Auto-create reminder when dueDate is set/updated
     if (dueDate !== undefined && updated.dueDate && !updated.parentId) {
@@ -118,7 +163,7 @@ export async function PATCH(
                 title: task.title,
                 description: task.description,
                 priority: task.priority,
-                projectId: task.projectId,
+                projectId: updated.projectId,
                 dueDate: newDueDate,
                 repeatInterval: task.repeatInterval,
                 repeatEndDate: task.repeatEndDate,
@@ -134,7 +179,7 @@ export async function PATCH(
               title: task.title,
               description: task.description,
               priority: task.priority,
-              projectId: task.projectId,
+              projectId: updated.projectId,
               dueDate: newDueDate,
               repeatInterval: task.repeatInterval,
               repeatEndDate: task.repeatEndDate,

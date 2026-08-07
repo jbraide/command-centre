@@ -17,7 +17,10 @@ export async function GET(
     include: {
       tasks: {
         orderBy: { sortOrder: 'asc' },
-        include: { subtasks: { orderBy: { sortOrder: 'asc' } } },
+        include: {
+          subtasks: { orderBy: { sortOrder: 'asc' } },
+          goal: { select: { id: true, name: true, color: true } },
+        },
       },
       notes: { orderBy: { createdAt: 'desc' } },
       links: {
