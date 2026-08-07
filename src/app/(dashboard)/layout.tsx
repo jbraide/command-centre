@@ -6,6 +6,7 @@ import { signOut, useSession, SessionProvider } from 'next-auth/react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { TranscriptionQueueProvider, useTranscriptionQueue } from '@/lib/transcription-queue';
 import { FocusProvider, useFocus } from '@/lib/focus-context';
+import { AuthSessionGuard, installAuthInterceptor } from '@/lib/session-guard';
 
 import {
   LayoutDashboard,
@@ -479,6 +480,27 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  // Treat API 401 responses (expired/cleared session) as a signal to send the
+  // user back to the login page.
+  useEffect(() => {
+    installAuthInterceptor();
+  }, []);
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      // Explicit callbackUrl makes sign-out land on /login instead of the
+      // current (protected) page, avoiding a redirect chain.
+      await signOut({ callbackUrl: '/login' });
+    } catch {
+      // If the client-side sign-out call fails, fall back to a hard redirect.
+      window.location.assign('/login');
+    } finally {
+      setSigningOut(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex">
@@ -545,11 +567,16 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                 {session?.user?.email}
               </div>
               <button
-                onClick={() => signOut()}
-                className="hover:text-[var(--danger)] transition-colors"
+                onClick={handleSignOut}
+                disabled={signingOut}
+                className="hover:text-[var(--danger)] transition-colors disabled:opacity-50"
                 title="Sign out"
               >
-                <LogOut size={16} />
+                {signingOut ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <LogOut size={16} />
+                )}
               </button>
             </div>
           </div>
@@ -599,7 +626,9 @@ export default function DashboardLayout({
     <SessionProvider>
       <TranscriptionQueueProvider>
         <FocusProvider>
-          <DashboardShell>{children}</DashboardShell>
+          <AuthSessionGuard>
+            <DashboardShell>{children}</DashboardShell>
+          </AuthSessionGuard>
         </FocusProvider>
       </TranscriptionQueueProvider>
     </SessionProvider>

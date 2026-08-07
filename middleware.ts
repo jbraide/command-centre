@@ -1,21 +1,33 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { auth } from '@/lib/auth';
+import { getToken } from 'next-auth/jwt';
 
 export async function middleware(req: NextRequest) {
-  // Allow API routes with Bearer token header to pass through
+  // API routes authenticate themselves and return proper 401 JSON when the
+  // session is missing or expired — never redirect them to the login page.
   if (req.nextUrl.pathname.startsWith('/api/')) {
-    const authHeader = req.headers.get('authorization');
-    if (authHeader?.startsWith('Bearer ')) {
-      return NextResponse.next();
-    }
+    return NextResponse.next();
   }
 
-  // Check session (cookies-based)
-  const session = await auth();
-  if (!session?.user?.id) {
+  // JWT session check for page requests.
+  // Uses getToken (jose) instead of the auth() helper: auth() imports Prisma
+  // and bcryptjs, which can't run in the Edge runtime and would silently
+  // disable this middleware.
+  const secureCookie = (process.env.AUTH_URL || process.env.NEXTAUTH_URL || '').startsWith(
+    'https://'
+  );
+  const token = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET || 'fallback-secret-change-me',
+    secureCookie,
+  });
+
+  if (!token) {
     const url = new URL('/login', req.url);
-    url.searchParams.set('callbackUrl', req.nextUrl.pathname);
+    url.searchParams.set(
+      'callbackUrl',
+      req.nextUrl.pathname + req.nextUrl.search
+    );
     return NextResponse.redirect(url);
   }
 

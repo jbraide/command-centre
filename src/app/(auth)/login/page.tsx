@@ -1,16 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Only allow same-origin relative paths — prevents open redirects.
+  const rawCallback = searchParams.get('callbackUrl') ?? '';
+  const callbackUrl =
+    rawCallback.startsWith('/') && !rawCallback.startsWith('//')
+      ? rawCallback
+      : '/';
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -28,7 +36,8 @@ export default function LoginPage() {
         return;
       }
 
-      router.push('/');
+      // Return the user to the page they were on (e.g. after a session expiry).
+      router.push(callbackUrl);
       router.refresh();
     } catch {
       toast.error('Something went wrong');
@@ -87,5 +96,13 @@ export default function LoginPage() {
         </Link>
       </p>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }
