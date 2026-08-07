@@ -40,6 +40,9 @@ import {
   ListFilter,
   ExternalLink,
   Mail,
+  Target,
+  CalendarDays,
+  CalendarRange,
 } from 'lucide-react';
 
 const navGroups = [
@@ -70,9 +73,17 @@ const navGroups = [
       { href: '/transcriber', label: 'Reel Transcriber', icon: Film },
       { href: '/youtube-transcriber', label: 'YouTube Transcriber', icon: Youtube },
       { href: '/scripts', label: 'Script Writer', icon: SquarePen },
+      { href: '/content-calendar', label: 'Content Calendar', icon: CalendarRange },
       { href: '/principles', label: 'Key Principles', icon: BookOpen },
       { href: '/styles', label: 'Script Styles', icon: Palette },
       { href: '/personas', label: 'Creator Personas', icon: Users },
+    ],
+  },
+  {
+    label: 'Planning',
+    items: [
+      { href: '/goals', label: 'Goals', icon: Target },
+      { href: '/calendar', label: 'Calendar', icon: CalendarDays },
     ],
   },
   {
@@ -584,11 +595,11 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex-1 flex flex-col min-h-screen md:ml-64">
-        <header className="md:hidden flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--panel)]">
-          <div className="text-sm font-bold text-[var(--accent)] tracking-wider">
+        <header className="md:hidden flex items-center justify-between px-3 py-3 sm:px-4 border-b border-[var(--border)] bg-[var(--panel)]">
+          <div className="text-xs sm:text-sm font-bold text-[var(--accent)] tracking-wider truncate">
             $ COMMAND CENTER
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <FocusTimerIndicator />
             <NotificationBell />
             <QueueStatusIndicator />
