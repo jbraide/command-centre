@@ -905,7 +905,7 @@ export default function ProjectDetailPage() {
   // -----------------------------------------------------------------------
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-svh">
       {/* Back button */}
       <button
         onClick={() => router.push('/projects')}

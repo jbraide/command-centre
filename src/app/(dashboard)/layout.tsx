@@ -514,7 +514,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-svh flex">
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-20 md:hidden"
@@ -594,8 +594,8 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-h-screen md:ml-64">
-        <header className="md:hidden flex items-center justify-between px-3 py-3 sm:px-4 border-b border-[var(--border)] bg-[var(--panel)]">
+      <div className="flex-1 flex flex-col min-h-svh md:ml-64">
+        <header className="md:hidden sticky top-0 z-20 flex items-center justify-between px-3 py-3 sm:px-4 border-b border-[var(--border)] bg-[var(--panel)]">
           <div className="text-xs sm:text-sm font-bold text-[var(--accent)] tracking-wider truncate">
             $ COMMAND CENTER
           </div>
@@ -619,7 +619,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           <QueueStatusIndicator />
         </div>
 
-        <main className="flex-1 p-4 md:p-8 overflow-auto">
+        <main className="flex-1 p-4 md:p-8">
           {children}
         </main>
         <FloatingTasks />

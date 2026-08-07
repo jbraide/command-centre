@@ -651,12 +651,12 @@ export default function MatrixPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-svh">
         <div className="flex items-center gap-3 mb-8">
           <Grid3x3 size={24} className="text-[var(--accent)]" />
           <h1 className="text-2xl font-bold">Eisenhower Matrix</h1>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[calc(100vh-12rem)]">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[calc(100svh_-_12rem)]">
           {QUADRANT_ORDER.map((key) => (
             <div
               key={key}
@@ -683,7 +683,7 @@ export default function MatrixPage() {
   // ── Main render ──
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-svh">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
