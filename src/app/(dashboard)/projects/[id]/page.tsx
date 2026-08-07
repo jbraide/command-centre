@@ -22,6 +22,8 @@ import {
   X,
   Check,
   Flag,
+  Target,
+  FolderKanban,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -32,6 +34,7 @@ import {
 interface Task {
   id: string;
   projectId: string;
+  goalId?: string | null;
   parentId?: string | null;
   title: string;
   description?: string | null;
@@ -43,6 +46,7 @@ interface Task {
   repeatEndDate?: string | null;
   repeatCount?: number | null;
   subtasks?: Task[];
+  goal?: { id: string; name: string; color: string } | null;
 }
 
 interface Note {
@@ -179,6 +183,7 @@ export default function ProjectDetailPage() {
   // Task creation form state
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState('MEDIUM');
+  const [newTaskGoalId, setNewTaskGoalId] = useState('');
   const [addingTask, setAddingTask] = useState(false);
 
   // Task inline editing state
@@ -191,8 +196,14 @@ export default function ProjectDetailPage() {
   const [editRepeatInterval, setEditRepeatInterval] = useState('');
   const [editRepeatEndDate, setEditRepeatEndDate] = useState('');
   const [editRepeatCount, setEditRepeatCount] = useState('');
+  const [editGoalId, setEditGoalId] = useState('');
+  const [editProjectId, setEditProjectId] = useState('');
   const [savingTask, setSavingTask] = useState(false);
   const editRef = useRef<HTMLDivElement>(null);
+
+  // Projects + goals for move/assignment dropdowns
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [goals, setGoals] = useState<{ id: string; name: string; color: string }[]>([]);
 
   // Subtask state
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
@@ -254,9 +265,31 @@ export default function ProjectDetailPage() {
     }
   }, []);
 
+  // Load projects + goals for the move / goal-assignment dropdowns
+  const fetchAux = useCallback(async () => {
+    try {
+      const [projectsRes, goalsRes] = await Promise.all([
+        fetch('/api/projects'),
+        fetch('/api/goals'),
+      ]);
+      if (projectsRes.ok) {
+        const data: { id: string; name: string }[] = await projectsRes.json();
+        setProjects(data.map((p) => ({ id: p.id, name: p.name })));
+      }
+      if (goalsRes.ok) {
+        const data: { id: string; name: string; color: string }[] =
+          await goalsRes.json();
+        setGoals(data.map((g) => ({ id: g.id, name: g.name, color: g.color })));
+      }
+    } catch {
+      // Non-critical — dropdowns just stay empty
+    }
+  }, []);
+
   useEffect(() => {
     fetchProject();
-  }, [fetchProject]);
+    fetchAux();
+  }, [fetchProject, fetchAux]);
 
   // Hydration-safe: sync hideCompleted from localStorage after mount
   useEffect(() => {
@@ -283,6 +316,7 @@ export default function ProjectDetailPage() {
         body: JSON.stringify({
           title,
           priority: newTaskPriority,
+          ...(newTaskGoalId ? { goalId: newTaskGoalId } : {}),
         }),
       });
       if (!res.ok) throw new Error('Failed to add task');
@@ -292,6 +326,7 @@ export default function ProjectDetailPage() {
       );
       setNewTaskTitle('');
       setNewTaskPriority('MEDIUM');
+      setNewTaskGoalId('');
     } catch {
       toast.error('Failed to add task');
     } finally {
@@ -391,6 +426,8 @@ export default function ProjectDetailPage() {
     setEditRepeatInterval(task.repeatInterval || '');
     setEditRepeatEndDate(toDateInputValue(task.repeatEndDate));
     setEditRepeatCount(task.repeatCount ? String(task.repeatCount) : '');
+    setEditGoalId(task.goalId || '');
+    setEditProjectId(task.projectId);
   };
 
   const closeEdit = () => {
@@ -402,6 +439,8 @@ export default function ProjectDetailPage() {
     setEditRepeatInterval('');
     setEditRepeatEndDate('');
     setEditRepeatCount('');
+    setEditGoalId('');
+    setEditProjectId('');
   };
 
   // -----------------------------------------------------------------------
@@ -549,33 +588,41 @@ export default function ProjectDetailPage() {
     const repeatInterval = editRepeatInterval || null;
     const repeatEndDate = editRepeatEndDate || null;
     const repeatCount = editRepeatCount ? parseInt(editRepeatCount, 10) : null;
+    const movedToProjectId =
+      editProjectId && editProjectId !== previousTask.projectId
+        ? editProjectId
+        : null;
 
-    // Optimistic update
-    setProject((prev) =>
-      prev
-        ? {
-            ...prev,
-            tasks: prev.tasks.map((t) =>
-              t.id === taskId
-                ? {
-                    ...t,
-                    title,
-                    priority: editPriority,
-                    dueDate: editDueDate
-                      ? new Date(editDueDate).toISOString()
-                      : null,
-                    description: editDescription || null,
-                    repeatInterval,
-                    repeatEndDate: repeatEndDate
-                      ? new Date(repeatEndDate).toISOString()
-                      : null,
-                    repeatCount,
-                  }
-                : t
-            ),
-          }
-        : prev
-    );
+    // Optimistic update (skipped when moving — the task leaves this project)
+    if (!movedToProjectId) {
+      setProject((prev) =>
+        prev
+          ? {
+              ...prev,
+              tasks: prev.tasks.map((t) =>
+                t.id === taskId
+                  ? {
+                      ...t,
+                      title,
+                      priority: editPriority,
+                      dueDate: editDueDate
+                        ? new Date(editDueDate).toISOString()
+                        : null,
+                      description: editDescription || null,
+                      repeatInterval,
+                      repeatEndDate: repeatEndDate
+                        ? new Date(repeatEndDate).toISOString()
+                        : null,
+                      repeatCount,
+                      goalId: editGoalId || null,
+                      goal: goals.find((g) => g.id === editGoalId) ?? null,
+                    }
+                  : t
+              ),
+            }
+          : prev
+      );
+    }
 
     try {
       setSavingTask(true);
@@ -594,22 +641,39 @@ export default function ProjectDetailPage() {
             ? new Date(repeatEndDate).toISOString()
             : null,
           repeatCount,
+          goalId: editGoalId || null,
+          ...(movedToProjectId ? { projectId: movedToProjectId } : {}),
         }),
       });
       if (!res.ok) throw new Error('Failed to save task');
+
+      if (movedToProjectId) {
+        // Task now lives in another project — remove it from this list
+        setProject((prev) =>
+          prev
+            ? { ...prev, tasks: prev.tasks.filter((t) => t.id !== taskId) }
+            : prev
+        );
+        const target = projects.find((p) => p.id === movedToProjectId);
+        toast.success(
+          `Task moved to "${target?.name ?? 'another project'}"`
+        );
+      }
       closeEdit();
     } catch {
       // Revert
-      setProject((prev) =>
-        prev
-          ? {
-              ...prev,
-              tasks: prev.tasks.map((t) =>
-                t.id === taskId ? previousTask : t
-              ),
-            }
-          : prev
-      );
+      if (!movedToProjectId) {
+        setProject((prev) =>
+          prev
+            ? {
+                ...prev,
+                tasks: prev.tasks.map((t) =>
+                  t.id === taskId ? previousTask : t
+                ),
+              }
+            : prev
+        );
+      }
       toast.error('Failed to save task');
     } finally {
       setSavingTask(false);
@@ -966,6 +1030,28 @@ export default function ProjectDetailPage() {
                 size="xs"
               />
             </div>
+
+            {/* Goal selector */}
+            {goals.length > 0 && (
+              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border)]">
+                <Target size={13} className="text-[var(--muted)] flex-shrink-0" />
+                <span className="text-[11px] font-medium text-[var(--muted)] uppercase tracking-wider mr-1">
+                  Goal
+                </span>
+                <select
+                  value={newTaskGoalId}
+                  onChange={(e) => setNewTaskGoalId(e.target.value)}
+                  className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-all"
+                >
+                  <option value="">No goal</option>
+                  {goals.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </form>
 
           {/* Hide completed toggle */}
@@ -1075,6 +1161,21 @@ export default function ProjectDetailPage() {
                             </span>
                           )}
 
+                          {/* Goal chip */}
+                          {task.goal && (
+                            <span
+                              className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border"
+                              style={{
+                                color: task.goal.color || '#7fd858',
+                                borderColor: `${task.goal.color || '#7fd858'}55`,
+                                backgroundColor: `${task.goal.color || '#7fd858'}14`,
+                              }}
+                            >
+                              <Target size={10} />
+                              {task.goal.name}
+                            </span>
+                          )}
+
                           {/* Repeat badge */}
                           {task.repeatInterval && (
                             <span className="inline-flex items-center gap-1 text-[10px] text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/30">
@@ -1098,8 +1199,8 @@ export default function ProjectDetailPage() {
                         </div>
                       </div>
 
-                      {/* Edit pencil (visible on hover) */}
-                      <span className="flex-shrink-0 p-1 rounded text-[var(--muted)] opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* Edit pencil (visible on hover, always on touch) */}
+                      <span className="flex-shrink-0 p-1 rounded text-[var(--muted)] opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <Pencil size={13} />
                       </span>
 
@@ -1109,7 +1210,7 @@ export default function ProjectDetailPage() {
                           e.stopPropagation();
                           handleDeleteTask(task.id);
                         }}
-                        className="flex-shrink-0 p-1 rounded text-[var(--muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 transition-all"
+                        className="flex-shrink-0 p-1 rounded text-[var(--muted)] opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 transition-all"
                         title="Delete task"
                       >
                         <Trash2 size={14} />
@@ -1193,6 +1294,54 @@ export default function ProjectDetailPage() {
                           </button>
                         )}
                       </div>
+
+                      {/* Goal */}
+                      <div className="flex items-center gap-2">
+                        <Target
+                          size={13}
+                          className="text-[var(--muted)] flex-shrink-0"
+                        />
+                        <span className="text-[11px] font-medium text-[var(--muted)] uppercase tracking-wider mr-1">
+                          Goal
+                        </span>
+                        <select
+                          value={editGoalId}
+                          onChange={(e) => setEditGoalId(e.target.value)}
+                          className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-all"
+                        >
+                          <option value="">No goal</option>
+                          {goals.map((g) => (
+                            <option key={g.id} value={g.id}>
+                              {g.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Project (move) — top-level tasks only */}
+                      {!task.parentId && projects.length > 1 && (
+                        <div className="flex items-center gap-2">
+                          <FolderKanban
+                            size={13}
+                            className="text-[var(--muted)] flex-shrink-0"
+                          />
+                          <span className="text-[11px] font-medium text-[var(--muted)] uppercase tracking-wider mr-1">
+                            Project
+                          </span>
+                          <select
+                            value={editProjectId}
+                            onChange={(e) => setEditProjectId(e.target.value)}
+                            className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-all"
+                          >
+                            {projects.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                                {p.id === task.projectId ? ' (current)' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
 
                       {/* Repeat */}
                       <div className="space-y-2">
@@ -1316,7 +1465,7 @@ export default function ProjectDetailPage() {
                                       e.stopPropagation();
                                       handleDeleteSubtask(subtask.id);
                                     }}
-                                    className="flex-shrink-0 p-0.5 rounded text-[var(--muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--danger)] transition-all"
+                                    className="flex-shrink-0 p-0.5 rounded text-[var(--muted)] opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:text-[var(--danger)] transition-all"
                                     title="Delete subtask"
                                   >
                                     <Trash2 size={12} />
@@ -1453,7 +1602,7 @@ export default function ProjectDetailPage() {
                   </p>
                   <button
                     onClick={() => handleDeleteNote(note.id)}
-                    className="flex-shrink-0 p-1 rounded text-[var(--muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 transition-all"
+                    className="flex-shrink-0 p-1 rounded text-[var(--muted)] opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 transition-all"
                     title="Delete note"
                   >
                     <Trash2 size={14} />
@@ -1614,7 +1763,7 @@ export default function ProjectDetailPage() {
 
                   <button
                     onClick={() => handleDeleteLink(link.id)}
-                    className="flex-shrink-0 p-1 rounded text-[var(--muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 transition-all"
+                    className="flex-shrink-0 p-1 rounded text-[var(--muted)] opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 transition-all"
                     title="Delete link"
                   >
                     <Trash2 size={14} />
