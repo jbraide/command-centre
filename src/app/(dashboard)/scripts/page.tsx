@@ -513,9 +513,9 @@ function ScriptsPageInner() {
   /* ── Render ─────────────────────────────────── */
 
   return (
-    <div className="h-[calc(100vh-8rem)] grid grid-cols-1 md:grid-cols-2 gap-0 border border-[var(--border)]">
+    <div className="md:h-[calc(100vh-8rem)] grid grid-cols-1 md:grid-cols-2 gap-0 border border-[var(--border)]">
       {/* ─── Left Panel: Script List ──────────────── */}
-      <div className="flex flex-col border-r border-[var(--border)] bg-[var(--panel)] overflow-hidden">
+      <div className="flex flex-col border-r border-[var(--border)] bg-[var(--panel)] overflow-hidden max-h-72 md:max-h-none">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
           <h1 className="text-sm font-bold text-[var(--foreground)] flex items-center gap-2">

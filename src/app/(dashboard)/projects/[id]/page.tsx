@@ -917,13 +917,17 @@ export default function ProjectDetailPage() {
 
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <CircleDot size={22} style={{ color: project.color }} />
-          <h1 className="text-2xl font-bold text-[var(--foreground)]">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 mb-2">
+          <CircleDot
+            size={22}
+            style={{ color: project.color }}
+            className="shrink-0"
+          />
+          <h1 className="text-xl sm:text-2xl font-bold text-[var(--foreground)] min-w-0 break-words">
             {project.name}
           </h1>
           <span
-            className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full border ${
+            className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full border shrink-0 ${
               STATUS_STYLES[project.status] || STATUS_STYLES.ACTIVE
             }`}
           >
@@ -1140,7 +1144,7 @@ export default function ProjectDetailPage() {
                           {task.title}
                         </span>
 
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
                           {/* Priority dot */}
                           <span
                             className="flex items-center gap-1 text-[10px] font-medium"
@@ -1244,7 +1248,7 @@ export default function ProjectDetailPage() {
                       />
 
                       {/* Priority buttons */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Flag
                           size={13}
                           className="text-[var(--muted)] flex-shrink-0"
@@ -1270,7 +1274,7 @@ export default function ProjectDetailPage() {
                       </div>
 
                       {/* Due date */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Calendar
                           size={13}
                           className="text-[var(--muted)] flex-shrink-0"
@@ -1364,8 +1368,8 @@ export default function ProjectDetailPage() {
                         </div>
 
                         {editRepeatInterval && (
-                          <div className="flex items-center gap-3 pl-2">
-                            <div className="flex items-center gap-1.5">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 pl-2">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="text-[10px] text-[var(--muted)]">End after</span>
                               <input
                                 type="number"
@@ -1373,12 +1377,12 @@ export default function ProjectDetailPage() {
                                 value={editRepeatCount}
                                 onChange={(e) => setEditRepeatCount(e.target.value)}
                                 placeholder="∞"
-                                className="w-16 px-2 py-1 text-xs rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-all"
+                                className="w-14 px-2 py-1 text-xs rounded border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-all"
                               />
                               <span className="text-[10px] text-[var(--muted)]">occurrences</span>
                             </div>
-                            <span className="text-[10px] text-[var(--muted)]">or</span>
-                            <div className="flex items-center gap-1.5">
+                            <span className="hidden sm:inline text-[10px] text-[var(--muted)]">or</span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="text-[10px] text-[var(--muted)]">End by</span>
                               <input
                                 type="date"
@@ -1450,7 +1454,7 @@ export default function ProjectDetailPage() {
 
                                   {/* Subtask title */}
                                   <span
-                                    className={`flex-1 text-sm ${
+                                    className={`flex-1 min-w-0 truncate text-sm ${
                                       subtask.completed
                                         ? 'line-through text-[var(--muted)]'
                                         : 'text-[var(--foreground)]'
