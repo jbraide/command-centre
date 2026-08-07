@@ -274,8 +274,8 @@ export default function StoragePage() {
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-[var(--foreground)] flex items-center gap-2">
             <HardDriveUpload className="text-[var(--accent)]" size={24} />
             File Storage
